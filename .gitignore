@@ -1,0 +1,21 @@
+# Dependências
+node_modules
+/client/node_modules
+/server/node_modules
+package-lock.json
+yarn.lock
+
+# Build
+dist
+build
+
+# Logs e Sistema
+*.log
+.DS_Store
+
+# Ambiente e Segurança (NUNCA SUBIR ISSO)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
