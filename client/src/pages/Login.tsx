@@ -4,7 +4,12 @@ import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
 import type { AuthResponse } from '../types';
 
-export default function Login() {
+interface LoginProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function Login({ isOpen, onClose }: LoginProps) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false); 
@@ -27,6 +32,7 @@ export default function Login() {
       const { user, token } = response.data;
       
       login(user, token);
+      onClose();
       navigate('/chat');
 
     } catch (err: any) {
@@ -37,9 +43,19 @@ export default function Login() {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="flex items-center justify-center min-h-[80vh]">
-      <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="relative bg-white p-10 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
+        
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold"
+        >
+          ✕
+        </button>
+
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-[#0078D4] mb-2">
             Que bom ter você aqui!
