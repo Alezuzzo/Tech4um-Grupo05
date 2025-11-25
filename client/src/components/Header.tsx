@@ -1,8 +1,11 @@
 import React from 'react';
 import logoImg from '../assets/logo.png'
+import type { User } from '../types';
 
 interface HeaderProps {
-  onLoginClick: () => void;
+  user: User | null;      // Pra mostrar o avatar ou botão de login
+  onLoginClick: () => void; // Pra abrir o modal
+  onLogout: () => void;     // Pra deslogar
 }
 
 const Header: React.FC<HeaderProps> = ({ onLoginClick }) => {

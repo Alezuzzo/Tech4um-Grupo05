@@ -1,26 +1,30 @@
 import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
-import { Header } from '../components/Header';
+import  Login  from '../pages/Login';
+import  Header  from '../components/Header'; 
 import api from '../services/api';
 
+// interface para os dados da sala
 interface Room {
   id: string;
   name: string;
   description: string;
-  count?: number;
-  participantsCount?: number;
+  count?: number; //compatibilidade com json-server
+  participantsCount?: number; 
 }
 
 export default function Dashboard() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  
+  // estado para lembrar qual sala o usuario tentou entrar antes de logar
   const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
 
+  // busca das salas
   useEffect(() => {
     async function fetchRooms() {
       try {
@@ -35,8 +39,10 @@ export default function Dashboard() {
     fetchRooms();
   }, []);
 
+  // lógica clique na sala
   const handleEnterRoom = (roomId: string) => {
     if (user) {
+      // Se já está logado, entra direto
       navigate(`/chat/${roomId}`);
     } else {
       setPendingRoomId(roomId);
@@ -44,11 +50,14 @@ export default function Dashboard() {
     }
   };
 
+  // função chamada pelo Modal assim que o login funciona
   const handleLoginSuccess = () => {
     setIsLoginModalOpen(false);
+    
+    // se tinha uma sala pendente, redireciona pra ela agora
     if (pendingRoomId) {
       navigate(`/chat/${pendingRoomId}`);
-      setPendingRoomId(null);
+      setPendingRoomId(null); 
     }
   };
 
@@ -62,6 +71,7 @@ export default function Dashboard() {
       />
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
+        
         <div className="mb-8">
           <h2 className="text-3xl text-gray-400 font-light">Opa!</h2>
           <h3 className="text-xl font-bold text-gray-600">Sobre o que gostaria de falar hoje?</h3>
@@ -77,6 +87,7 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* grid salas */}
         {loading ? (
           <div className="text-center py-20 text-gray-400 animate-pulse">
             Carregando salas...
@@ -92,16 +103,19 @@ export default function Dashboard() {
                 <h4 className="font-extrabold text-blue-500 text-lg mb-1 group-hover:text-blue-700">
                   {room.name}
                 </h4>
+                
                 <p className="text-gray-500 text-sm leading-relaxed mb-6 line-clamp-3 min-h-[60px]">
                   {room.description}
                 </p>
+
                 <div className="flex justify-between items-center border-t pt-4">
                   <div className="flex -space-x-2">
                     <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white"></div>
                     <div className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white"></div>
                   </div>
+                  
                   <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1 rounded-full">
-                    +{room.count || 0} pessoas
+                    +{room.count || room.participantsCount || 0} pessoas
                   </span>
                 </div>
               </div>
@@ -110,10 +124,11 @@ export default function Dashboard() {
         )}
       </main>
 
-      <LoginModal 
+      {/* modal login */}
+      <Login
         isOpen={isLoginModalOpen} 
         onClose={() => setIsLoginModalOpen(false)}
-        onSuccess={handleLoginSuccess}
+        onSuccess={handleLoginSuccess} //lógica de redirecionamento aqui
       />
     </div>
   );

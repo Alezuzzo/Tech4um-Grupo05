@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { User } from '../types';
 import api from '../services/api';
 
-// Define o formato do nosso Contexto
+// define o formato do nosso Contexto
 interface AuthContextType {
   user: User | null;
   login: (userData: User, token: string) => void;
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(parsedUser);
 
         api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
-        socket.connect();
+        //socket.connect();
       } catch (error) {
         // Se o JSON estiver quebrado, limpa tudo silenciosamente
         console.error("Cache limpo devido a erro de leitura:", error);
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
     // Conecta o socket
-    socket.connect();
+    //socket.connect();
   };
 
   const logout = () => {

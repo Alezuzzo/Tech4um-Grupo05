@@ -1,22 +1,20 @@
 import { useState, useContext, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
-import type { AuthResponse } from '../types';
 
 interface LoginProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void; // Prop nova para garantir o redirecionamento correto
 }
 
-export default function Login({ isOpen, onClose }: LoginProps) {
+export default function Login({ isOpen, onClose, onSuccess }: LoginProps) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false); 
   const [error, setError] = useState('');
   
   const { login } = useContext(AuthContext);
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -24,16 +22,35 @@ export default function Login({ isOpen, onClose }: LoginProps) {
     setLoading(true);
 
     try {
-      const response = await api.post<AuthResponse>('/auth', { 
+      const response = await api.post('/auth', { 
         username, 
         email 
       });
       
-      const { user, token } = response.data;
+      // --- logica misturada (mock com real) ---
+      let userData;
+      let tokenData;
+
+      // se vier do Backend Real (tem chave 'user')
+      if (response.data.user) {
+        userData = response.data.user;
+        tokenData = response.data.token;
+      } else {
+        // Se vier do json-server (Mock)
+        userData = response.data;
+        tokenData = 'token-fake-mock';
+      }
       
-      login(user, token);
+      // Salva no contexto
+      login(userData, tokenData);
+      
+      // Fecha o modal
       onClose();
-      navigate('/chat');
+
+      // Redireciona para onde o Dashboard pediu (ex: sala específica)
+      if (onSuccess) {
+        onSuccess();
+      }
 
     } catch (err: any) {
       setError('Erro ao entrar. Tente novamente.');
