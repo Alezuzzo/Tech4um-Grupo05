@@ -1,92 +1,52 @@
-import { useState, useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../contexts/AuthContext';
-import Login from './Login';
-import api from '../services/api';
-
-// Interface para os dados da sala
-interface Room {
+export interface Room {
   id: string;
   name: string;
   description: string;
-  count?: number; // Compatibilidade com json-server
+  count?: number; 
   participantsCount?: number; 
 }
 
-export default function Home() {
-  const { user } = useContext(AuthContext);
-  const navigate = useNavigate();
-  
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Controle local do Modal (apenas para quando clicar na sala)
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
+interface HomeProps {
+  rooms: Room[];
+  loading: boolean;
+  onEnterRoom: (roomId: string) => void;
+  // Opcional: Função para criar sala (botão "Ou crie seu próprio 4um")
+  onCreateRoom?: () => void; 
+}
 
-  // 1. Busca das salas ao carregar a página
-  useEffect(() => {
-    async function fetchRooms() {
-      try {
-        const response = await api.get('/rooms');
-        setRooms(response.data);
-      } catch (error) {
-        console.error("Erro ao carregar salas:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchRooms();
-  }, []);
-
-  // 2. Lógica: Quando clica em uma sala
-  const handleEnterRoom = (roomId: string) => {
-    if (user) {
-      // Se já está logado, entra direto
-      navigate(`/chat/${roomId}`);
-    } else {
-      // Se não, guarda o ID da sala e abre o login
-      setPendingRoomId(roomId);
-      setIsLoginModalOpen(true);
-    }
-  };
-
-  // 3. Callback: Quando o login dá certo
-  const handleLoginSuccess = () => {
-    setIsLoginModalOpen(false);
-    
-    // Redireciona para a sala que o usuário tentou entrar
-    if (pendingRoomId) {
-      navigate(`/chat/${pendingRoomId}`);
-      setPendingRoomId(null); 
-    }
-  };
-
+export default function Home({ rooms, loading, onEnterRoom, onCreateRoom }: HomeProps) {
   return (
-    <div className="w-full mx-auto flex flex-col gap-8 mt-12 md:mt-14">
+    <div className="w-full mx-auto flex flex-col gap-8 mt-15">
         
+        {/* --- CABEÇALHO E BUSCA (Seu estilo visual) --- */}
         <section className="flex flex-col gap-1.5">
             <h1 className="text-3xl text-gray-500 font-light">Opa!</h1>
-            <p className="text-xl text-gray-500 font-bold">Sobre o que gostaria de falar hoje?</p>
+            <p className="text-xl text-gray-500 font-bold">Sobre oque gostaria de falar hoje?</p>
         </section>
 
-        <div className="flex flex-col md:flex-row gap-5">
-            <div className="flex flex-1 border border-[#0078D4] rounded-lg justify-between items-center bg-white pl-1">
+        <div className="flex gap-5">
+            {/* Barra de Busca Estilizada */}
+            <div className="flex flex-1 border border-[#0078D4] rounded-lg justify-between items-center">
                 <input 
-                    className="px-4 py-3 focus:outline-none text-sm placeholder-gray-400 w-full rounded-l-lg" 
+                    className="px-4 py-3 focus:outline-none text-sm placeholder-gray-400 w-full" 
                     type="text" 
                     placeholder="Em busca de uma sala? Encontre-a aqui"
                 />
-                <button className='bg-[#0078D4] text-white font-bold px-5 py-3 rounded-lg transition-colors shadow-md hover:bg-[#0060AA] m-1 h-[calc(100%-8px)] flex items-center justify-center'>
+                <button className='bg-[#0078D4] text-white font-bold px-4 rounded-lg transition-colors h-full shadow-md hover:bg-[#0060AA]'>
                     →
                 </button>
             </div>
-            <button className='bg-[#0078D4] text-white px-5 py-3 rounded-lg transition-colors w-fit shadow-md hover:bg-[#0060AA] font-medium whitespace-nowrap'>
+            
+            {/* Botão Criar Sala */}
+            <button 
+              onClick={onCreateRoom}
+              className='bg-[#0078D4] text-white px-3 rounded-lg transition-colors w-fit shadow-md hover:bg-[#0060AA] font-medium'
+            >
                 Ou crie seu próprio 4um
             </button>
         </div>
 
-        {/* SECTION: Grid de Salas (Funcionalidade Mantida) */}
+        {/* --- GRID DE SALAS (Conteúdo) --- */}
         {loading ? (
             <div className="text-center py-20 text-gray-400 animate-pulse">
             Carregando salas...
@@ -96,29 +56,23 @@ export default function Home() {
             {rooms.map((room) => (
                 <div 
                 key={room.id}
-                onClick={() => handleEnterRoom(room.id)}
+                onClick={() => onEnterRoom(room.id)}
                 className="bg-white p-6 rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-transparent hover:border-blue-100 group relative"
                 >
-                {/* Título da Sala */}
                 <h4 className="font-extrabold text-[#0078D4] text-lg mb-1 group-hover:underline">
                     {room.name}
                 </h4>
                 
-                {/* Descrição */}
                 <p className="text-gray-500 text-sm leading-relaxed mb-12 line-clamp-3">
                     {room.description}
                 </p>
 
-                {/* Rodapé do Card */}
                 <div className="absolute bottom-6 left-6 right-6 flex justify-between items-center border-t border-gray-100 pt-4">
-                    
-                    {/* Avatares (Decorativo) */}
                     <div className="flex -space-x-2">
                     <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white"></div>
                     <div className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white"></div>
                     </div>
                     
-                    {/* Contador de Pessoas */}
                     <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1 rounded-full">
                     +{room.count || room.participantsCount || 0} pessoas
                     </span>
@@ -127,13 +81,6 @@ export default function Home() {
             ))}
             </section>
         )}
-
-        {/* Modal de Login (Controlado localmente para o fluxo da sala) */}
-        <Login
-            isOpen={isLoginModalOpen} 
-            onClose={() => setIsLoginModalOpen(false)}
-            onSuccess={handleLoginSuccess}
-        />
     </div>
   );
 }
