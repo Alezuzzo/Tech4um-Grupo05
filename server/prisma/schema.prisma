@@ -6,9 +6,9 @@ generator client {
 }
 
 datasource db {
+  provider = "postgresql"//mudei para postgres para subir no banco
+  url      = env("DATABASE_URL") // <--- Adicione esta linha
   //mantive Postgres (ideal pro Render), mas se quiser rodar local sem docker, muda pra "sqlite"
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model User {
