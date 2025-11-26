@@ -1,23 +1,56 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// server/prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js" 
+  //removi o 'output' para ele salvar no node_modules padrão e parar de dar erro de import
 }
 
 datasource db {
-  provider = "postgresql"
+  //mantive Postgres (ideal pro Render), mas se quiser rodar local sem docker, muda pra "sqlite"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  nickname  String   @unique @id
+  id        String   @id @default(uuid())
+  username  String   @unique // o front manda 'username'
   email     String   @unique
   password  String   
-  admin     Boolean  @default(false)
-  createdAt DateTime @default(now())  
-}  
+  
+  createdAt DateTime @default(now())
+
+ //relacoes para o chat
+  messages     Message[]
+  createdRooms Room[]    @relation("RoomCreator")
+}
+
+model Room {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  
+  //quem criou a sala
+  creatorId   String
+  creator     User      @relation("RoomCreator", fields: [creatorId], references: [id])
+
+  //mensagens da sala
+  messages    Message[]
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  
+  // quem mandou
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id])
+
+  // suporte a Mensagem Privada
+  isPrivate  Boolean @default(false)
+  receiverId String?
+}

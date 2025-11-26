@@ -100,6 +100,11 @@
       "id": "ae61",
       "username": "Felipe",
       "email": "felipe@test.com"
+    },
+    {
+      "id": "e567",
+      "username": "Thalles",
+      "email": "thalles@test.com"
     }
   ]
 }
