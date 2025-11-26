@@ -4,9 +4,9 @@ import * as userController from '../controllers/user.controller'
 const userRouter = express.Router()
 
 userRouter.get('/', userController.ctrlGetAllUsers)
-userRouter.get('/:id', userController.ctrlGetUser)
+userRouter.get('/:email', userController.ctrlGetUser)
 userRouter.post('/', userController.ctrlNewUser)
-userRouter.patch('/:id', userController.ctrlUpdateUserData)
-userRouter.delete('/:id', userController.ctrlDeleteUser)
+userRouter.patch('/:email', userController.ctrlUpdateUserData)
+userRouter.delete('/:email', userController.ctrlDeleteUser)
 
 export default userRouter

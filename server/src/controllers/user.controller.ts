@@ -7,8 +7,8 @@ export async function ctrlGetAllUsers(req: Request, res: Response, next: NextFun
 }
 
 export async function ctrlGetUser(req: Request, res: Response, next: NextFunction){
-    const userId = req.params.id
-    const foundUser = await userRepo.repGetUserById(parseInt(userId))
+    const userEmail = req.params.email
+    const foundUser = await userRepo.repGetUserByEmail(userEmail)
     if (!foundUser){
         res.sendStatus(404)
     }
@@ -16,20 +16,20 @@ export async function ctrlGetUser(req: Request, res: Response, next: NextFunctio
 }
 
 export async function ctrlNewUser(req: Request, res: Response, next: NextFunction){
-    const {nickname, email} = req.body
-    await userRepo.repNewUser({nickname, email})
+    const {nickname, email, password} = req.body
+    await userRepo.repNewUser({nickname, email, password})
     res.sendStatus(201)
 }
 
 export async function ctrlUpdateUserData(req: Request, res: Response, next: NextFunction){
-    const userId = req.params.id
-    const {nickname, email} = req.body
-    await userRepo.repUpdateUserData(parseInt(userId), {nickname, email})
+    const userEmail = req.params.email
+    const {nickname, password} = req.body
+    await userRepo.repUpdateUserData(userEmail, {nickname, password})
     res.sendStatus(201)
 }
 
 export async function ctrlDeleteUser(req: Request, res: Response, next: NextFunction){
-    const userId = req.params.id
-    await userRepo.repDeleteUser(parseInt(userId))
+    const userEmail = req.params.email
+    await userRepo.repDeleteUser(userEmail)
     res.sendStatus(204)
 }
