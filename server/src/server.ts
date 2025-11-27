@@ -1,40 +1,37 @@
+// server.ts (versão ajustada para o render)
 import http from 'http';
-import express from 'express';
-import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
+import app from './app'; //como o app.ts está configurado, agora usamo ele com as rodas reais
 import { setupSocket } from './socket-service';
+import { PrismaClient } from '@prisma/client';
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-const prisma = new PrismaClient();
+// Criamos o servidor HTTP a partir do app
 const server = http.createServer(app);
 
-// inicia o Socket (que já está configurado para usar o banco real)
+// Inicia o socket (é nele que o chat real funciona)
 setupSocket(server);
 
-// mistura das rotas de mock e sycn
-// pra fazer apenas o chat funcionar
+// Instância do Prisma (usada apenas pelas rotas mock abaixo)
+const prisma = new PrismaClient();
 
-// login fake pra garantir que o usuario existe
-app.post('/auth', async (req, res) => {
+//comentei caso vocês queiram testar algo, mas as rotas fake sobescreviam as reais e estavam impedindo os testes
+//agora como subi no render precisei utilizar as que eu fiz
+
+/*
+
+app.post('/auth', async (req, res) => {   
   const { username, email } = req.body;
   
-  // id fiox simulado pra facilitar o teste
-  const userId = email.replace(/[^a-zA-Z0-9]/g, ''); 
+  const userId = email.replace(/[^a-zA-Z0-9]/g, ''); // id fake
 
   try {
-    // cria;/atualiza o usuario pra nao dar erro de FK
-    // nao valido senha - fazer depois
     const user = await prisma.user.upsert({
       where: { email },
       update: { username },
       create: { 
-        id: userId, // forcei um id 
+        id: userId,
         email, 
         username, 
-        password: 'temp-password-hash' // placeholder da senha
+        password: 'temp-password-hash' // senha fake
       }
     });
 
@@ -42,7 +39,7 @@ app.post('/auth', async (req, res) => {
     
     res.json({ 
       user: { id: user.id, username: user.username, email: user.email }, 
-      token: 'token-de-teste-socket' 
+      token: 'token-de-teste-socket'
     });
   } catch (error) {
     console.error(error);
@@ -50,15 +47,15 @@ app.post('/auth', async (req, res) => {
   }
 });
 
+
 // salas fake tambem
-app.get('/rooms', async (req, res) => {
+app.get('/rooms', async (req, res) => {   // 
   const roomsMock = [
     { id: 'sala-1', name: 'Dev Raiz', description: 'Socket e Código' },
     { id: 'sala-2', name: 'React Lovers', description: 'Frontend e CSS' }
   ];
 
   try {
-    // garante que essas salas existam no banco
     const systemUser = await prisma.user.upsert({
       where: { email: 'system@test.com' },
       update: {},
@@ -70,15 +67,14 @@ app.get('/rooms', async (req, res) => {
         where: { id: room.id },
         update: {},
         create: { 
-          id: room.id, 
-          name: room.name, 
-          description: room.description, 
+          id: room.id,
+          name: room.name,
+          description: room.description,
           creatorId: systemUser.id 
         }
       });
     }
 
-    //retorna a lista pro front
     res.json(roomsMock);
   } catch (error) {
     console.error(error);
@@ -86,8 +82,9 @@ app.get('/rooms', async (req, res) => {
   }
 });
 
+
 // rota real do chat - busca o historico verdadeiro salvo pelo Socket
-app.get('/chat/:roomId/messages', async (req, res) => {
+app.get('/chat/:roomId/messages', async (req, res) => {  
   const { roomId } = req.params;
   
   try {
@@ -98,7 +95,6 @@ app.get('/chat/:roomId/messages', async (req, res) => {
       take: 50
     });
 
-    // formata para o front
     const formatted = messages.map((msg: any) => ({
       id: msg.id,
       content: msg.content,
@@ -112,12 +108,15 @@ app.get('/chat/:roomId/messages', async (req, res) => {
     res.json(formatted);
   } catch (error) {
     console.error(error);
-    // se a sala nao tiver mensagens ou der erro, retorna vazio pra não quebrar
-    res.json([]);
+    res.json([]); // fallback
   }
 });
 
-const PORT = 3000;
+*/
+
+
+const PORT = process.env.PORT || 3000;  //  porta dinâmica para deploy
+
 server.listen(PORT, () => {
-  console.log(`Servidor HÍBRIDO rodando na porta ${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });

@@ -1,14 +1,14 @@
 import express from 'express';
-import * as authController from '../controllers/auth.controller';  // Importando o controller de autenticação
+import { loginController } from 'src/controllers/auth/login.controller';
+import { registerController } from 'src/controllers/auth/register.controller';
 
 const authRouter = express.Router();
 
 // Rota de login
-authRouter.post('/login', authController.ctrlLoginUser);
+authRouter.post('/login', loginController);
 
 // Rota de cadastro
-authRouter.post('/register', authController.ctrlNewUser);
-
+authRouter.post('/register',registerController);
 export default authRouter;
 
 // alterei para ter duas rotas uma de login e a outra de cadastro pois o login mexe apenas com email e senha
