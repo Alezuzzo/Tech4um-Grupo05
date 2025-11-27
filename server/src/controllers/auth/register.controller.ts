@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as userRepo from '../../repositories/user.repository';
 import argon2 from 'argon2';
+import jwt from 'jsonwebtoken';
 
 export async function registerController(req: Request, res: Response) {
     const { nickname, email, password } = req.body;
@@ -26,14 +27,19 @@ export async function registerController(req: Request, res: Response) {
             password: hashedPassword,
         });
 
-        return res.status(201).json({ 
-            message: 'Usuário criado com sucesso!', //retorna a confirmação do usuário criado
-            user: newUser 
+        return res.status(201).json({/*como o front espera receber o token tanto de login quanto do cadastro, precisamos passar ele aqui também, pois antes ele estava dando como erro ao processar a requisição pois o token só vinha no login. como já tinhamos que receber o token no cadastro, coloquei pra já logar direto após fazer o cadastro */
+            message: 'Usuário criado com sucesso!',
+            user: newUser,
+            token: jwt.sign(
+                { id: newUser.id, email: newUser.email },
+                process.env.JWT_SECRET || 'secret',
+                { expiresIn: '8h' }
+            )
         });
 
     } catch (err) {//qualquer erro inesperado cai aqui
         console.error(err);
-        
+
         return res.status(500).json({ message: 'Erro ao criar usuário.' });
     }
 }
