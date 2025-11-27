@@ -26,8 +26,14 @@ export async function loginController(req: Request, res: Response, next: NextFun
             process.env.JWT_SECRET || 'secret',
             { expiresIn: '8h' }
         );
-
-        return res.status(200).json({ token });//retorna o token no response
+        return res.status(200).json({//retorna o token no response
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            }
+        });
 
     } catch (err) {//pega erros inesperados
         console.error(err);

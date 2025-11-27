@@ -21,47 +21,69 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginProps) {
   
   const { login } = useContext(AuthContext);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+const handleSubmit = async (e: FormEvent) => {
+  e.preventDefault();                  // evita o recarregamento da página
+  setError('');                        // limpa erro anterior
+  setLoading(true);                    // ativa o loading no botão
 
-    try {
-      // Envia para a rota /auth com os dados necessários
-      // Se for Login, o 'username' vai vazio (undefined), o backend ignora
-      const response = await api.post('/auth', { 
-        username: isSignUp ? username : undefined, 
-        email, 
-        password 
+  try {
+    let response;
+
+    if (isSignUp) {
+      // CADASTRO
+      // envia nickname, email e senha para a rota de criação de usuário
+      response = await api.post('/auth/register', {
+        nickname: username,
+        email,
+        password
       });
-      
-      // Tratamento para funcionar com Mock ou Backend Real
-      let userData;
-      let tokenData;
 
-      if (response.data.user) {
-        userData = response.data.user;
-        tokenData = response.data.token;
-      } else {
-        // Fallback pro json-server
-        userData = response.data;
-        tokenData = 'token-fake-mock';
-      }
-      
-      login(userData, tokenData);
-      onClose();
-      
-      if (onSuccess) onSuccess();
+      // mensagem opcional para o usuário saber que funcionou
+      alert("Usuário criado com sucesso!");
 
-    } catch (err: any) {
-      console.error(err);
-      // tenta pegar a mensagem de erro específica do backend
-      const msg = err.response?.data?.error || 'Erro ao processar. Verifique seus dados.';
-      setError(msg);
-    } finally {
-      setLoading(false);
+    } else {
+      // LOGIN
+      // envia email e senha para gerar o token JWT
+      response = await api.post('/auth/login', {
+        email,
+        password
+      });
     }
-  };
+
+    // pega o token retornado pelo backend real
+    const token = response.data.token;
+    const user = response.data.user ?? null;
+
+    // caso algum problema ocorra e o token não venha
+    if (!token) {
+      throw new Error("Token não recebido. Verifique o backend.");
+    }
+
+    // chama o login() do AuthContext para salvar token e usuário
+    login(user, token);
+
+    // fecha o modal
+    onClose();
+
+    // callback opcional caso o componente pai queira executar algo
+    if (onSuccess) onSuccess();
+
+  } catch (err: any) {
+    console.error(err);
+
+    // tenta pegar mensagem vinda do backend
+    const msg = err.response?.data?.message 
+                || 'Erro ao processar requisição.';
+
+    // exibe erro no modal
+    setError(msg);
+
+  } finally {
+    // desativa o loading independentemente do resultado
+    setLoading(false);
+  }
+};
+
 
   // limpa os erros ao trocar de aba
   const toggleMode = () => {
