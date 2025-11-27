@@ -9,17 +9,23 @@ import { authenticateToken } from './middleware/auth.middleware';
 const app = express();
  
 app.use(morgan('tiny'));
- 
+
+// Habilitar CORS
 app.use(cors());
- 
+
 app.use(helmet());
- 
+
 app.use(express.json());
- 
-app.use('/users/', userRouter)
-app.use('/login/', authRouter)
-app.use('/mwtest/', authenticateToken)
-app.get('/mwtest/', (req, res) => {
-  res.send('Hello World!')
-})
+
+// Rotas para autenticação
+app.use('/api/auth', authRouter);  
+
+// Rotas para usuários
+app.use('/api/users', userRouter); 
+
+app.use('/mwtest', authenticateToken);
+app.get('/mwtest', (req: Request, res: Response) => {
+  res.send('Hello World!');
+});
+
 export default app;
