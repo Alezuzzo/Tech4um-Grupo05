@@ -1,5 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+
+
+// onde???
+declare global {
+  namespace Express {
+    interface Request {
+      payload?: string | JwtPayload
+    }
+  }
+}
 
 export function authenticateToken(req: Request, res: Response, next: NextFunction) {
   const token = req.headers['authorization'];
@@ -11,7 +21,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
     if (err) {
         return res.status(403).json({ message: 'Invalid or expired token' });
         }
-        console.log(decoded) //temporario, editar posteriormente para checar privilegios de admin
+        req.payload = decoded
         next()
     }) //verificar a seguranca disso
 }
