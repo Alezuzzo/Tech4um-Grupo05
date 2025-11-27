@@ -1,90 +1,120 @@
-// server.ts (versão ajustada para o render)
 import http from 'http';
-import app from './app'; //como o app.ts está configurado, agora usamo ele com as rodas reais
-import { setupSocket } from './socket-service';
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { setupSocket } from './socket-service';
+import authRouter from './routes/auth.route';
+import userRouter from './routes/user.route';
 
-// Criamos o servidor HTTP a partir do app
+dotenv.config();
+
+const PORT = process.env.PORT || 3000;
+
+const app = express();
+
+app.use(morgan('tiny'));
+app.use(cors());
+app.use(helmet());
+app.use(express.json());
+
 const server = http.createServer(app);
-
-// Inicia o socket (é nele que o chat real funciona)
-setupSocket(server);
-
-// Instância do Prisma (usada apenas pelas rotas mock abaixo)
 const prisma = new PrismaClient();
 
-//comentei caso vocês queiram testar algo, mas as rotas fake sobescreviam as reais e estavam impedindo os testes
-//agora como subi no render precisei utilizar as que eu fiz
+//inicia o socket
+setupSocket(server);
 
-/*
+// 4. ROTAS
 
-app.post('/auth', async (req, res) => {   
-  const { username, email } = req.body;
-  
-  const userId = email.replace(/[^a-zA-Z0-9]/g, ''); // id fake
+//rotas de autenticação e usuários
+app.use('/auth', authRouter);
+app.use('/users', userRouter);
 
+//rotas de salas e chat
+
+//lista salas
+app.get('/rooms', async (req, res) => {
   try {
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: { username },
-      create: { 
-        id: userId,
-        email, 
-        username, 
-        password: 'temp-password-hash' // senha fake
+    const rooms = await prisma.room.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { 
+        _count: { select: { messages: true } } 
       }
     });
 
-    console.log(`🔓 Login simulado (sync no banco): ${user.username}`);
-    
-    res.json({ 
-      user: { id: user.id, username: user.username, email: user.email }, 
-      token: 'token-de-teste-socket'
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro ao sincronizar usuário mock' });
-  }
-});
+    //se não tiver salas, cria umas padrão (Seed) para não ficar vazio
+    if (rooms.length === 0) {
+      //tenta achar ou criar um admin para ser o dono das salas iniciais
+      let admin = await prisma.user.findFirst();
+      
+      if (!admin) {
+        //se o banco estiver zerado mesmo, cria um user dummy
+        admin = await prisma.user.create({
+          data: { 
+            username: 'System', 
+            email: 'admin@tech4um.com', 
+            password: 'sys' //hash simplificado só pra seed
+          }
+        });
+      }
 
-
-// salas fake tambem
-app.get('/rooms', async (req, res) => {   // 
-  const roomsMock = [
-    { id: 'sala-1', name: 'Dev Raiz', description: 'Socket e Código' },
-    { id: 'sala-2', name: 'React Lovers', description: 'Frontend e CSS' }
-  ];
-
-  try {
-    const systemUser = await prisma.user.upsert({
-      where: { email: 'system@test.com' },
-      update: {},
-      create: { id: 'system', username: 'System', email: 'system@test.com', password: 'sys' }
-    });
-
-    for (const room of roomsMock) {
-      await prisma.room.upsert({
-        where: { id: room.id },
-        update: {},
-        create: { 
-          id: room.id,
-          name: room.name,
-          description: room.description,
-          creatorId: systemUser.id 
-        }
+      await prisma.room.createMany({
+        data: [
+          { name: 'Geral', description: 'Papo livre', creatorId: admin.id },
+          { name: 'React', description: 'Frontend e JS', creatorId: admin.id }
+        ]
       });
+      
+      const newRooms = await prisma.room.findMany();
+      return res.json(newRooms);
     }
 
-    res.json(roomsMock);
+    res.json(rooms);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro ao sincronizar salas mock' });
+    console.error("Erro ao buscar salas:", error);
+    res.status(500).json({ error: 'Erro ao buscar salas' });
   }
 });
 
+//cria sala
+app.post('/rooms', async (req, res) => {
+  const { name, description } = req.body;
+  
+  if (!name) {
+    return res.status(400).json({ error: 'Nome da sala é obrigatório' });
+  }
 
-// rota real do chat - busca o historico verdadeiro salvo pelo Socket
-app.get('/chat/:roomId/messages', async (req, res) => {  
+  try {
+    //pega o primeiro usuário do banco para ser dono
+    const creator = await prisma.user.findFirst();
+    
+    if (!creator) {
+      return res.status(400).json({ error: 'Não há usuários no banco para criar sala.' });
+    }
+
+    const newRoom = await prisma.room.create({
+      data: {
+        name,
+        description,
+        creatorId: creator.id
+      }
+    });
+
+    res.status(201).json(newRoom);
+  } catch (error: any) {
+    console.error("Erro ao criar sala:", error);
+    //tratamento para nomes duplicados de sala
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Já existe uma sala com este nome.' });
+    }
+    res.status(500).json({ error: 'Erro ao criar sala' });
+  }
+});
+
+//histórico do chat
+app.get('/chat/:roomId/messages', async (req, res) => {
   const { roomId } = req.params;
   
   try {
@@ -95,7 +125,7 @@ app.get('/chat/:roomId/messages', async (req, res) => {
       take: 50
     });
 
-    const formatted = messages.map((msg: any) => ({
+    const formatted = messages.map((msg) => ({
       id: msg.id,
       content: msg.content,
       senderId: msg.senderId,
@@ -107,16 +137,12 @@ app.get('/chat/:roomId/messages', async (req, res) => {
 
     res.json(formatted);
   } catch (error) {
-    console.error(error);
-    res.json([]); // fallback
+    console.error("Erro ao buscar histórico:", error);
+    res.json([]);
   }
 });
 
-*/
-
-
-const PORT = process.env.PORT || 3000;  //  porta dinâmica para deploy
-
+//inicia servidor
 server.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`✅ Servidor Unificado rodando na porta ${PORT}`);
 });
