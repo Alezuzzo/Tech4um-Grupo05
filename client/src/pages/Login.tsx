@@ -31,9 +31,9 @@ const handleSubmit = async (e: FormEvent) => {
 
     if (isSignUp) {
       // CADASTRO
-      // envia nickname, email e senha para a rota de criação de usuário
+      // envia username, email e senha para a rota de criação de usuário
       response = await api.post('/auth/register', {   //alterado: antes chamava /auth
-        nickname: username,
+        username: username,
         email,
         password
       });
