@@ -10,7 +10,6 @@ interface HomeProps {
   rooms: Room[];
   loading: boolean;
   onEnterRoom: (roomId: string) => void;
-  // Opcional: Função para criar sala (botão "Ou crie seu próprio 4um")
   onCreateRoom?: () => void; 
 }
 
