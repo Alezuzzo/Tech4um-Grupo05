@@ -1,37 +1,82 @@
-import { Server, Socket } from 'socket.io';
-import { PrismaClient } from '@prisma/client';
+import { Server, Socket } from "socket.io";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface MessagePayLoad {
-    content: string;
-    senderId: string;
-    roomId: string;
-    isPrivate?: boolean;
-    receiverId?: string;
+interface MessagePayload {
+  content: string;
+  senderId: string;
+  roomId: string;
+  isPrivate?: boolean;
+  receiverId?: string;
 }
+
+// gestão de usuarios online na memoria
+// isso permite mostrar quem está na sala em tempo real na sidebar
+let onlineUsers: { socketId: string; userId: string; username: string; roomId: string }[] = [];
+
+// adiciona usuário na lista
+const userJoin = (socketId: string, userId: string, username: string, roomId: string) => {
+  const user = { socketId, userId, username, roomId };
+  // remove duplicatas se o socket reconectar
+  onlineUsers = onlineUsers.filter(u => u.socketId !== socketId);
+  onlineUsers.push(user);
+  return user;
+};
+
+// remove usuário da lista
+const userLeave = (socketId: string) => {
+  const index = onlineUsers.findIndex(u => u.socketId === socketId);
+  if (index !== -1) {
+    return onlineUsers.splice(index, 1)[0];
+  }
+};
+
+//lista daquela sala
+const getRoomUsers = (roomId: string) => {
+  return onlineUsers.filter(u => u.roomId === roomId);
+};
 
 export const setupSocket = (httpServer: any) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: "*", // libera conexão do Frontend (localhost:5173)
+      origin: "*", // libera conexão do front
       methods: ["GET", "POST"]
     }
   });
 
   io.on("connection", (socket: Socket) => {
-    console.log(`🔌 Usuário conectado: ${socket.id}`);
+    //entrar na Sala
+    // o front manda { roomId, user }
+    socket.on("join_room", (data: any) => {
+      let roomId = "";
+      let user = null;
 
-    // entrar na sala
-    socket.on("join_room", (roomId: string) => {
-      socket.join(roomId);
-      console.log(`Socket ${socket.id} entrou na sala ${roomId}`);
+      // tratamento para aceitar tanto string quanto objeto (compatibilidade)
+      if (typeof data === "string") {
+        roomId = data;
+      } else {
+        roomId = data.roomId;
+        user = data.user;
+      }
+
+      const username = user?.username || `Visitante-${socket.id.substring(0, 4)}`;
+      const userId = user?.id || socket.id;
+
+      const newUser = userJoin(socket.id, userId, username, roomId);
+      
+      socket.join(newUser.roomId);
+      console.log(`🟢 Socket ${socket.id} (${username}) entrou na sala ${roomId}`);
+
+      // avisa todos da sala quem está online
+      const usersInRoom = getRoomUsers(newUser.roomId);
+      io.to(newUser.roomId).emit("room_users", usersInRoom);
     });
 
-    // envia mensagem
-    socket.on("send_message", async (data: MessagePayLoad) => {
+    //envia mensagem
+    socket.on("send_message", async (data: MessagePayload) => {
       try {
-        console.log("Recebendo mensagem:", data);
+        console.log("📨 Mensagem recebida:", data);
 
         //salva no banco
         const savedMsg = await prisma.message.create({
@@ -43,12 +88,11 @@ export const setupSocket = (httpServer: any) => {
             receiverId: data.receiverId
           },
           include: {
-            sender: true // Traz o nome do usuário junto para devolver pro front
+            sender: true //traz o nome do usuario junto
           }
         });
 
-        // B. Formata o objeto para o Frontend
-        // O Front espera "senderName", mas o banco tem "sender.username"
+        //formata o obj pro front
         const messageToEmit = {
           id: savedMsg.id,
           content: savedMsg.content,
@@ -60,18 +104,23 @@ export const setupSocket = (httpServer: any) => {
           receiverId: savedMsg.receiverId
         };
 
-        // C. Emite para a sala
+        // emite para sala
         io.to(data.roomId).emit("receive_message", messageToEmit);
         
       } catch (error) {
-        console.error("Erro ao salvar mensagem:", error);
-        // Opcional: emitir um erro de volta pro usuário
-        socket.emit("error", { message: "Erro ao enviar mensagem" });
+        console.error("❌ Erro ao salvar mensagem:", error);
+        socket.emit("error", { message: "Erro ao salvar mensagem no banco." });
       }
     });
 
+    // desconecta
     socket.on("disconnect", () => {
-      console.log("Usuário desconectado", socket.id);
+      const user = userLeave(socket.id);
+      if (user) {
+        //avisa quem saiu da sala
+        io.to(user.roomId).emit("room_users", getRoomUsers(user.roomId));
+        console.log(`${user.username} saiu.`);
+      }
     });
   });
 

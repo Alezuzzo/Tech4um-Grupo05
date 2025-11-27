@@ -4,7 +4,7 @@ import api from '../services/api';
 interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void; // Para recarregar a lista de salas
+  onSuccess: () => void; // para recarregar a lista de salas
 }
 
 export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalProps) {
@@ -19,7 +19,7 @@ export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalP
     setLoading(true);
 
     try {
-      // Envia para o backend
+      // envia para o backend
       await api.post('/rooms', { 
         name, 
         description 
