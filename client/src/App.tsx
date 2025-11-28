@@ -4,6 +4,7 @@ import { PrivateRoute } from './components/PrivateRoute';
 import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
 
+
 function App() {
   return (
     <BrowserRouter>

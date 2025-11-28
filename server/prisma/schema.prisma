@@ -22,7 +22,6 @@ model User {
 
   createdAt DateTime @default(now())
 
-  // relações 1:N – não colocar onDelete aqui!
   messages     Message[]
   createdRooms Room[]    @relation("RoomCreator")
   joinedRooms  Room[]
@@ -48,11 +47,9 @@ model Message {
   createdAt DateTime @default(now())
   edited    Boolean  @default(false)
 
-  // FK → User
   senderId  String
   sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
-  // FK → Room
   roomId    String
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
 

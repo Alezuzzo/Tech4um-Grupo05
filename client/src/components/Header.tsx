@@ -17,16 +17,21 @@ export function Header({ user, onLoginClick, onLogout }: HeaderProps) {
   }
 
   return (
-    <header className="flex justify-between items-center w-full max-w-6xl mx-auto h-[100px] px-[50px] border-b border-gray-100">
+    <header className="
+    flex flex-col items-center gap-2
+    w-full max-w-6xl mx-auto h-auto px-[50px]
+    border-b border-gray-100 flex-wrap
+    md:flex-row md:justify-between md:h-[100px]
+  ">
       <div className='flex flex-row gap-2'>
-        <img src={logoImg} alt="Logo Tech4Um" className="w-[97px]" />
+        <img src={logoImg} alt="Logo Tech4Um" className="w-24 h-auto object-contain " />
         <h1 className='pt-5 px-2 text-gray-500'>Seu fórum sobre tecnologia!</h1>
       </div>
       {/* ÁREA DO USUÁRIO (CONDICIONAL) */}
       <div>
         {user ? (
           // --- ESTADO LOGADO (Nome + Avatar) ---
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sm:items-center">
             <div className="text-right hidden sm:block">
               <p className="font-bold text-gray-700 text-sm leading-tight">
                 {user.username}
@@ -72,7 +77,7 @@ export function Header({ user, onLoginClick, onLogout }: HeaderProps) {
               Fazer Login
             </span>
             {/* Círculo Colorido (Tom ferrugem/laranja da imagem) */}
-            <div className="w-10 h-10 bg-[#B84308] rounded-full shadow-sm group-hover:shadow-md transition-all transform group-active:scale-95"></div>
+            <div className="w-10 h-10 bg-[#B84308] rounded-full shadow-sm group-hover:shadow-md transition-all transform group-active:scale-95 shrink-0"></div>
           </button>
         )}
       </div>
