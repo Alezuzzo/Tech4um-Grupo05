@@ -1,16 +1,20 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useContext, type FormEvent } from 'react';
 import api from '../services/api';
+import { AuthContext } from '../contexts/AuthContext';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void; // para recarregar a lista de salas
+  onSuccess: () => void;
 }
 
 export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Pega o usuário logado do contexto para enviar o ID dele
+  const { user } = useContext(AuthContext);
 
   if (!isOpen) return null;
 
@@ -19,20 +23,22 @@ export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalP
     setLoading(true);
 
     try {
-      // envia para o backend
+      // Envia para o backend com o userId
       await api.post('/rooms', { 
         name, 
-        description 
+        description,
+        userId: user?.id // servidor agora usa isso para definir o dono
       });
- 
+      
       setName('');
       setDescription('');
       onSuccess();
       onClose();
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Erro ao criar sala. Tente outro nome.');
+      const msg = err.response?.data?.error || 'Erro ao criar sala.';
+      alert(msg);
     } finally {
       setLoading(false);
     }

@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import { setupSocket } from './socket-service';
+import { setupSocket, getOnlineCounts } from './socket-service';
 import authRouter from './routes/auth.route';
 import userRouter from './routes/user.route';
 
@@ -23,72 +23,103 @@ app.use(express.json());
 const server = http.createServer(app);
 const prisma = new PrismaClient();
 
-//inicia o socket
+// inicia o Socket.io
 setupSocket(server);
 
-// 4. ROTAS
-
-//rotas de autenticação e usuários
+// rotas de autenticação e usuários
 app.use('/auth', authRouter);
 app.use('/users', userRouter);
 
-//rotas de salas e chat
+// rotas dos sistemas de sala e chat
 
-//lista salas
+//listar salas
 app.get('/rooms', async (req, res) => {
+  //evita cache no navegador para atualizar o ranking sempre
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
   try {
-    const rooms = await prisma.room.findMany({
+    let rooms = await prisma.room.findMany({
       orderBy: { createdAt: 'desc' },
       include: { 
-        _count: { select: { messages: true } } 
+        _count: { select: { messages: true } }, //ranking
+        creator: { select: { username: true } } //nome do criador
       }
     });
 
-    //se não tiver salas, cria umas padrão (Seed) para não ficar vazio
+    //se não tiver salas, cria Seed
     if (rooms.length === 0) {
-      //tenta achar ou criar um admin para ser o dono das salas iniciais
       let admin = await prisma.user.findFirst();
       
       if (!admin) {
-        //se o banco estiver zerado mesmo, cria um user dummy
         admin = await prisma.user.create({
           data: { 
             username: 'System', 
             email: 'admin@tech4um.com', 
-            password: 'sys' //hash simplificado só pra seed
+            password: 'sys' 
           }
         });
       }
 
       await prisma.room.createMany({
         data: [
-          { name: 'Geral', description: 'Papo livre', creatorId: admin.id },
-          { name: 'React', description: 'Frontend e JS', creatorId: admin.id }
+          { name: 'Geral', description: 'Papo livre sobre tecnologia', creatorId: admin.id },
+          { name: 'React', description: 'Frontend, Hooks e Componentes', creatorId: admin.id },
         ]
       });
       
-      const newRooms = await prisma.room.findMany();
-      return res.json(newRooms);
+      //busca novamente para retornar formatado corretamente
+      rooms = await prisma.room.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: { 
+          _count: { select: { messages: true } },
+          creator: { select: { username: true } }
+        }
+      });
     }
 
-    res.json(rooms);
+    // contagem real
+    const liveCounts = getOnlineCounts();
+
+    const formatted = rooms.map(r => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      creatorId: r.creatorId,
+      
+      //mapeamentos para o front
+      creatorName: r.creator?.username || "Admin",
+      participantsCount: liveCounts[r.id] || 0,
+      totalMessages: r._count.messages
+    }));
+
+    res.json(formatted);
   } catch (error) {
     console.error("Erro ao buscar salas:", error);
     res.status(500).json({ error: 'Erro ao buscar salas' });
   }
 });
 
-//cria sala
+//criar Sala
 app.post('/rooms', async (req, res) => {
-  const { name, description } = req.body;
+  //adicionado userId para pegar o criador correto
+  const { name, description, userId } = req.body;
   
   if (!name) {
     return res.status(400).json({ error: 'Nome da sala é obrigatório' });
   }
 
   try {
-    //pega o primeiro usuário do banco para ser dono
-    const creator = await prisma.user.findFirst();
+    let creator;
+
+    //tenta achar o usuário logado
+    if (userId) {
+      creator = await prisma.user.findUnique({ where: { id: userId } });
+    }
+
+    //fallback: Se não mandou ou não achou, pega o primeiro do banco
+    if (!creator) {
+      creator = await prisma.user.findFirst();
+    }
     
     if (!creator) {
       return res.status(400).json({ error: 'Não há usuários no banco para criar sala.' });
@@ -105,7 +136,6 @@ app.post('/rooms', async (req, res) => {
     res.status(201).json(newRoom);
   } catch (error: any) {
     console.error("Erro ao criar sala:", error);
-    //tratamento para nomes duplicados de sala
     if (error.code === 'P2002') {
       return res.status(409).json({ error: 'Já existe uma sala com este nome.' });
     }
@@ -142,7 +172,18 @@ app.get('/chat/:roomId/messages', async (req, res) => {
   }
 });
 
-//inicia servidor
+//deletar sala
+app.delete('/rooms/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.message.deleteMany({ where: { roomId: id } });
+    await prisma.room.delete({ where: { id } });
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao deletar sala' });
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`✅ Servidor Unificado rodando na porta ${PORT}`);
 });

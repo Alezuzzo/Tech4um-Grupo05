@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 async function main() {
   console.log("🌱 Iniciando Seed do Banco...")
 
-  // Define senha padrão ou usa variável de ambiente
+  // define senha padrão ou usa variável de ambiente
   const defaultPassword = process.env.SEED_PASSWORD || '123456'
   
   // Cria o hash da senha

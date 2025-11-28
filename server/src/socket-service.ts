@@ -11,20 +11,17 @@ interface MessagePayload {
   receiverId?: string;
 }
 
-// gestão de usuarios online na memoria
-// isso permite mostrar quem está na sala em tempo real na sidebar
+//gestão de usuarios online
 let onlineUsers: { socketId: string; userId: string; username: string; roomId: string }[] = [];
 
-// adiciona usuário na lista
 const userJoin = (socketId: string, userId: string, username: string, roomId: string) => {
   const user = { socketId, userId, username, roomId };
-  // remove duplicatas se o socket reconectar
+  //remove se já existir para evitar duplicidade
   onlineUsers = onlineUsers.filter(u => u.socketId !== socketId);
   onlineUsers.push(user);
   return user;
 };
 
-// remove usuário da lista
 const userLeave = (socketId: string) => {
   const index = onlineUsers.findIndex(u => u.socketId === socketId);
   if (index !== -1) {
@@ -32,27 +29,36 @@ const userLeave = (socketId: string) => {
   }
 };
 
-//lista daquela sala
 const getRoomUsers = (roomId: string) => {
   return onlineUsers.filter(u => u.roomId === roomId);
+};
+
+// server.ts vai importar isso para saber quantos users tem em cada sala
+export const getOnlineCounts = () => {
+  const counts: Record<string, number> = {};
+  
+  onlineUsers.forEach((user) => {
+    //incrementa o contador para cada sala que encontrar na lista
+    counts[user.roomId] = (counts[user.roomId] || 0) + 1;
+  });
+  
+  return counts;
 };
 
 export const setupSocket = (httpServer: any) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: "*", // libera conexão do front
+      origin: "*",
       methods: ["GET", "POST"]
     }
   });
 
   io.on("connection", (socket: Socket) => {
     //entrar na Sala
-    // o front manda { roomId, user }
     socket.on("join_room", (data: any) => {
       let roomId = "";
       let user = null;
 
-      // tratamento para aceitar tanto string quanto objeto (compatibilidade)
       if (typeof data === "string") {
         roomId = data;
       } else {
@@ -66,19 +72,18 @@ export const setupSocket = (httpServer: any) => {
       const newUser = userJoin(socket.id, userId, username, roomId);
       
       socket.join(newUser.roomId);
-      console.log(`🟢 Socket ${socket.id} (${username}) entrou na sala ${roomId}`);
-
-      // avisa todos da sala quem está online
+      
+      //atualiza lista de participantes pro chat
       const usersInRoom = getRoomUsers(newUser.roomId);
       io.to(newUser.roomId).emit("room_users", usersInRoom);
     });
 
-    //envia mensagem
+    //enviar mensagem
     socket.on("send_message", async (data: MessagePayload) => {
       try {
-        console.log("📨 Mensagem recebida:", data);
+        console.log("📨 Mensagem:", data.content);
 
-        //salva no banco
+        // salva no Banco
         const savedMsg = await prisma.message.create({
           data: {
             content: data.content,
@@ -87,12 +92,9 @@ export const setupSocket = (httpServer: any) => {
             isPrivate: data.isPrivate || false,
             receiverId: data.receiverId
           },
-          include: {
-            sender: true //traz o nome do usuario junto
-          }
+          include: { sender: true }
         });
 
-        //formata o obj pro front
         const messageToEmit = {
           id: savedMsg.id,
           content: savedMsg.content,
@@ -104,22 +106,17 @@ export const setupSocket = (httpServer: any) => {
           receiverId: savedMsg.receiverId
         };
 
-        // emite para sala
         io.to(data.roomId).emit("receive_message", messageToEmit);
         
       } catch (error) {
-        console.error("❌ Erro ao salvar mensagem:", error);
-        socket.emit("error", { message: "Erro ao salvar mensagem no banco." });
+        console.error("Erro ao salvar mensagem:", error);
       }
     });
 
-    // desconecta
     socket.on("disconnect", () => {
       const user = userLeave(socket.id);
       if (user) {
-        //avisa quem saiu da sala
         io.to(user.roomId).emit("room_users", getRoomUsers(user.roomId));
-        console.log(`${user.username} saiu.`);
       }
     });
   });

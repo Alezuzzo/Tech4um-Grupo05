@@ -1,28 +1,29 @@
-import { useState, useContext, useEffect, useCallback } from 'react';
+import { useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
 import type { Room } from '../types';
-
-// Imports dos Componentes Visuais (Caminhos corrigidos)
 import { Header } from '../components/Header';
-import  Login  from '../pages/Login'; // Nome corrigido para Login.tsx
-import { CreateRoomModal } from '../components/CreateRoomModal'; // Faltava este
-import Home from '../pages/Home'; // Visual da lista de salas
+import { CreateRoomModal } from '../components/CreateRoomModal'; 
+import Login from './Login'; 
+import Home from './Home'; 
 
 export default function Dashboard() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  
+
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   
+  //estado para o filtro de busca
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   
-  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
+  //estado inteligente para lembrar ação pendente
+  const [pendingAction, setPendingAction] = useState<{ type: 'join' | 'create', roomId?: string } | null>(null);
 
-  // busca as salas na API
+  // busca salas
   const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
@@ -37,49 +38,102 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchRooms();
+    const interval = setInterval(fetchRooms, 10000);
+    return () => clearInterval(interval);
   }, [fetchRooms]);
 
-  // entrar na Sala
+  // exclui sala
+  const handleDeleteRoom = async (roomId: string) => {
+    if (window.confirm("Tem certeza que deseja excluir esta sala?")) {
+      try {
+        await api.delete(`/rooms/${roomId}`);
+        //atualiza a lista localmente removendo a sala deletada
+        setRooms(prev => prev.filter(r => r.id !== roomId));
+      } catch (error) {
+        console.error("Erro ao excluir sala:", error);
+        alert("Erro ao excluir sala. Verifique se você é o dono.");
+      }
+    }
+  };
+
+  //lógica de busca e ranking
+  const processedRooms = useMemo(() => {
+    if (rooms.length === 0) return [];
+
+    let list = [...rooms];
+
+    // identifica destaque
+    const sortedByActivity = [...list].sort((a, b) => 
+      (b.totalMessages || 0) - (a.totalMessages || 0)
+    );
+    const topRoomId = sortedByActivity[0].id;
+    const maxMessages = sortedByActivity[0].totalMessages || 0;
+
+    // marca destaque
+    list = list.map(r => ({
+      ...r,
+      isFeatured: r.id === topRoomId && maxMessages > 0
+    }));
+
+    // filtro busca
+    if (searchTerm.trim()) {
+      list = list.filter(r => 
+        r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.description && r.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // ordenação
+    list.sort((a, b) => {
+      if (a.isFeatured === b.isFeatured) return 0;
+      return a.isFeatured ? -1 : 1; 
+    });
+
+    return list;
+  }, [rooms, searchTerm]);
+
+  // entra sala
   const handleEnterRoom = (roomId: string) => {
     if (user) {
       navigate(`/chat/${roomId}`);
     } else {
-      setPendingRoomId(roomId);
+      setPendingAction({ type: 'join', roomId });
       setIsLoginModalOpen(true);
     }
   };
 
-  // criar Sala
+  // cria sala
   const handleCreateRoomClick = () => {
     if (user) {
       setIsCreateRoomOpen(true);
     } else {
-      // Se tentar criar deslogado, pede login
+      setPendingAction({ type: 'create' });
       setIsLoginModalOpen(true);
     }
   };
 
-  // callback de sucesso do Login
+  // sucesso no login
   const handleLoginSuccess = () => {
     setIsLoginModalOpen(false);
-    
-    // se o usuário estava tentando entrar numa sala específica, redireciona
-    if (pendingRoomId) {
-      navigate(`/chat/${pendingRoomId}`);
-      setPendingRoomId(null); 
+    if (pendingAction) {
+      if (pendingAction.type === 'join' && pendingAction.roomId) {
+        navigate(`/chat/${pendingAction.roomId}`);
+      } else if (pendingAction.type === 'create') {
+        setIsCreateRoomOpen(true);
+      }
+      setPendingAction(null);
     }
   };
 
-  // logout
+  //logout
   const handleLogout = () => {
     logout();
-    navigate('/'); // recarrega o dashboard como visitante
+    navigate('/');
   };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       
-      {/* Header Global */}
       <Header 
         user={user} 
         onLoginClick={() => setIsLoginModalOpen(true)} 
@@ -88,27 +142,28 @@ export default function Dashboard() {
 
       <main className="flex-1 w-full max-w-6xl mx-auto p-4 md:p-8">
         <Home 
-          rooms={rooms} 
+          rooms={processedRooms} 
           loading={loading} 
           onEnterRoom={handleEnterRoom}
           onCreateRoom={handleCreateRoomClick}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          currentUserId={user?.id}
+          onDeleteRoom={handleDeleteRoom}
         />
       </main>
 
-
-      {/* Modal de Login / Cadastro */}
       <Login
         isOpen={isLoginModalOpen} 
         onClose={() => setIsLoginModalOpen(false)}
         onSuccess={handleLoginSuccess}
       />
 
-      {/* Modal de Criar Sala (Faltava este no seu código) */}
       <CreateRoomModal 
         isOpen={isCreateRoomOpen}
         onClose={() => setIsCreateRoomOpen(false)}
         onSuccess={() => {
-          fetchRooms(); // Atualiza a lista quando criar sala nova
+          fetchRooms(); 
         }}
       />
     </div>

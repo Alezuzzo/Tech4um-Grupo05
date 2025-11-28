@@ -18,10 +18,10 @@ declare global {
 export function authenticateToken(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
 
-  const token = authHeader?.split(' ')[1];//Espera o Bearer TOKEN
+  const token = authHeader?.split(' ')[1];//espera o Bearer TOKEN
 
   if (!token) {
-    return res.status(401).json({ message: 'Token missing' });//Se não tem token cai aqui
+    return res.status(401).json({ message: 'Token missing' });//se não tem token cai aqui
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, decoded) => {
