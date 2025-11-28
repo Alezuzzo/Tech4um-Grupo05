@@ -15,9 +15,11 @@ export interface Room {
   name: string;
   description: string;
   creatorName?: string;
+  creatorId: string; 
   participantsCount?: number;
   count?: number; 
   isFeatured?: boolean;
+  totalMessages?: number;
 }
 
 export interface Participant {
