@@ -1,18 +1,48 @@
-import { PrismaClient } from '../generated/prisma/client'
-import argon2 from 'argon2'
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
+async function main() {
+  console.log("🌱 Iniciando Seed do Banco...")
 
-async function main(){
-    console.log("Seed attempting...")
-    const senha1 = await argon2.hash("hunter1")
-    const senha2 = await argon2.hash("hunter2")
-    const sampleUser1 = await prisma.user.create({data:{nickname:"Eduardo", email:"edu1010@email.com", password: senha1, admin:true}})
-    const sampleUser2 = await prisma.user.create({data:{nickname:"Monica", email:"lilmonix3@email.com", password:senha2}})
+  // Define senha padrão ou usa variável de ambiente
+  const defaultPassword = process.env.SEED_PASSWORD || '123456'
+  
+  // Cria o hash da senha
+  const passwordHash = await bcrypt.hash(defaultPassword, 10)
+
+  // Usuário 1: Eduardo
+  const edu = await prisma.user.upsert({
+    where: { email: 'edu1010@email.com' },
+    update: {},
+    create: {
+      username: "Eduardo",
+      email: "edu1010@email.com",
+      password: passwordHash
+    }
+  })
+
+  // Usuário 2: Monica
+  const monica = await prisma.user.upsert({
+    where: { email: 'lilmonix3@email.com' },
+    update: {},
+    create: {
+      username: "Monica",
+      email: "lilmonix3@email.com",
+      password: passwordHash
+    }
+  })
+
+  console.log(`✅ Usuários criados: ${edu.username} e ${monica.username}`)
 }
 
-main().catch((e) => {console.error('Seeding error:', e) 
-    process.exit(1)})
-    .finally(()=> {prisma.$disconnect()
-    console.log("Sucess.")})
+// Execução da função main com tratamento de erro adequado
+main()
+  .catch((e) => {
+    console.error('❌ Erro no Seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

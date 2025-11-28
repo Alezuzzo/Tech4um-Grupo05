@@ -16,6 +16,11 @@ export async function ctrlUpdateUserData(req: Request, res: Response) {
 
     //limpar campos proibidos
     delete updateData.id;
+    delete updateData.password;
+    delete updateData.createdAt;
+    delete updateData.messages;
+    delete updateData.createdRooms;
+    delete updateData.joinedRooms;
 
     //atualiza usuário
     const updatedUser = await userRepo.repUpdateUser(userId, updateData);
